@@ -20,7 +20,15 @@ def resize_image(img):
     return cv2.resize(img, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_NEAREST)
 
 def noise_remove(img):
-    return cv2.medianBlur(img.astype(np.float32), 3)
+    # blur
+    blur = cv2.GaussianBlur(img, (0,0), sigmaX=33, sigmaY=33)
+
+    # divide
+    divide = cv2.divide(img, blur, scale=255)
+
+    # otsu threshold
+    thresh = cv2.threshold(divide, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)[1]
+    return thresh
 
 def deskew_image(img):
     # detect box
@@ -52,7 +60,7 @@ show_image(img)
 img = grayscale_image(img)
 show_image(img)
 
-# Remove noise
+# Remove noise gaussian
 img = noise_remove(img)
 img = cv2.convertScaleAbs(img)
 show_image(img)
