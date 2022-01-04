@@ -10,4 +10,4 @@ image = preprocessing.preprocess_image(
     image=image, grayscale=True, noise_removal=True, deskew=True, normalize=True
 )
 util.show_image(image)
-cv2.imwrite('preprocessed.jpg', 255*image)
+cv2.imwrite('preprocessed.png', 255*image)
