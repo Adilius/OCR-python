@@ -1,39 +1,42 @@
 import cv2
 import numpy as np
 import util
-from imutils.object_detection import non_max_suppression
+import imutils.object_detection as imutils
+import csv
 
-THRESHOLD = 0.1
+NEW_DIMENSIONS = 32
 
-def get_new_dimensions(multiple: int = 32):
+def get_new_dimensions(image):
 
-    # Prepare image shape
-    height, width, _ = image.shape
-    print("Old dimensions",height, width)
-    new_height = (height//multiple)*multiple    # EAST model requires image size multiples of 32
-    new_width = (width//multiple)*multiple
-    print("New dimensions",new_height, new_width)
+    print('New dimensions...')
 
-    # Get radio change
+    # Get new image shape
+    try:
+        height, width = image.shape
+    except ValueError:
+        height, width, _ = image.shape
+    
+    new_height = (height//NEW_DIMENSIONS)*NEW_DIMENSIONS    # EAST model requires image size multiples of 32
+    new_width = (width//NEW_DIMENSIONS)*NEW_DIMENSIONS
+    
+    # Get ratio change
     h_ratio = height/new_height
     w_ratio = width/new_width
-    print("Ratio change", h_ratio, w_ratio)
+
+    #print("Old dimensions",height, width)
+    #print("New dimensions",new_height, new_width)
+    #print("Ratio change", h_ratio, w_ratio)
 
     return new_height, new_width, h_ratio, w_ratio
 
-def text_prediction(model: str = "east"):
-    pass
+def text_prediction(image, new_height, new_width):
 
-def text_detection(image):
-    # Load image
-    #image = cv2.imread('preprocessed.jpg')
+    print("Text detection...")
 
     # Load the frozen EAST model
     model = cv2.dnn.readNet('frozen_east_text_detection.pb')
 
-    new_height, new_width, h_ratio, w_ratio = get_new_dimensions(32)
-
-    # Create a 4D input blob
+    # Create a 4D input blob, (123.68, 116.78, 103.94) ImageNet
     blob = cv2.dnn.blobFromImage(image, 1, (new_width, new_height),(123.68, 116.78, 103.94), True, False)
 
     # Pass the blob to network
@@ -41,21 +44,22 @@ def text_detection(image):
 
     # Get output layers
     output_layers = model.getUnconnectedOutLayersNames()
-    print(output_layers)
 
     # Text detection prediction
-    print("Text detection...")
     (geometry, scores) = model.forward(output_layers)
+    return geometry, scores
 
-    # Thresholding
+def thresholding(geometry, scores, threshold):
+
     print("Thresholding...")
+
     rectangles = list()
     confidence_score = list()
     for i in range(geometry.shape[2]):
         for j in range(geometry.shape[3]):
 
             # If score for bounding box falls below threshold
-            if scores[0][0][i][j] < THRESHOLD:
+            if scores[0][0][i][j] < threshold:
                 continue
 
             bottom_x = int(j*4 + geometry[0][1][i][j])
@@ -68,11 +72,23 @@ def text_detection(image):
             rectangles.append((top_x, top_y, bottom_x, bottom_y))
             confidence_score.append(float(scores[0][0][i][j]))
 
-    # use Non-max suppression to get the required rectangles
-    fin_boxes = non_max_suppression(np.array(rectangles), probs=confidence_score, overlapThresh=0.5)
+    return rectangles, confidence_score
 
-    img_copy = image.copy()
-    for (x1, y1, x2, y2) in fin_boxes:
+# use Non-max suppression to get the required rectangles
+def non_max_suppression(rectangles, confidence_score, overlap_threshold):
+
+    print('Non-maximum suppression...')
+
+    fin_boxes = imutils.non_max_suppression(np.array(rectangles), probs=confidence_score, overlapThresh=overlap_threshold)
+    return fin_boxes
+
+def draw_rectangles(image, rectangles, h_ratio, w_ratio):
+
+    print('Drawing rectangles on image...')
+
+    image_copy = image.copy()
+
+    for (x1, y1, x2, y2) in rectangles:
 
         x1 = int(x1 * w_ratio)
         y1 = int(y1 * h_ratio)
@@ -80,16 +96,45 @@ def text_detection(image):
         y2 = int(y2 * h_ratio)
 
 
-        cv2.rectangle(img_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.rectangle(image_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    
+    return image_copy
 
-    cv2.imshow("Text Detection", img_copy)
-    cv2.waitKey(0)
+def detect_text(image, dimensions: bool = True, threshold: float = 0.1, overlap_threshold: float = 0.5):
+
+    if dimensions:
+        new_height, new_width, h_ratio, w_ratio = get_new_dimensions(image)
+    else:
+        new_height, new_width, _ = image.shape
+        h_ratio, w_ratio = 1,1
+        print("Dimensions kept change", new_height, new_width)
+
+    geometry, scores = text_prediction(image, new_height, new_width)
+
+    rectangles, confidence_score = thresholding(geometry, scores, threshold)
+
+    final_boxes = non_max_suppression(rectangles, confidence_score, overlap_threshold)
+
+    image_copy = draw_rectangles(image, final_boxes, h_ratio, w_ratio)
+
+    return image_copy, final_boxes
 
 if __name__ == "__main__":
 
-    # Input preprocessed image
+    # Load input preprocessed image
     image = cv2.imread("preprocessed.png", cv2.IMREAD_COLOR)
     util.show_image(image)
 
     # Text detection
-    text_detection(image)
+    image_copy, final_boxes = detect_text(image, dimensions=True, threshold = 0.1, overlap_threshold = 0.5)
+
+    # Show result
+    util.show_image(image_copy)
+
+    # Save text detected image
+    util.write_image('text_detection.png',image_copy)
+
+    # Save text detected bounding boxes coordinates
+    with open("text_detection_boxes.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(final_boxes)

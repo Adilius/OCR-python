@@ -4,37 +4,37 @@ import matplotlib.pyplot as plt
 from skimage import io
 import util
 
-def min_max(img):
-    img_min = np.min(img)
-    img_max = np.max(img)
-    new_img = (img - img_min) / (img_max - img_min)
-    return new_img
+def min_max(image):
+    image_min = np.min(image)
+    image_max = np.max(image)
+    new_image = (image - image_min) / (image_max - image_min)
+    return new_image
 
 
-def grayscale_image(img):
-    return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+def grayscale_image(image):
+    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 
-def resize_image(img):
-    return cv2.resize(img, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_NEAREST)
+def resize_image(image):
+    return cv2.resize(image, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_NEAREST)
 
 
-def noise_remove(img):
+def noise_remove(image):
     # blur
-    blur = cv2.GaussianBlur(img, (0, 0), sigmaX=33, sigmaY=33)
+    blur = cv2.GaussianBlur(image, (0, 0), sigmaX=33, sigmaY=33)
 
     # divide
-    divide = cv2.divide(img, blur, scale=255)
+    divide = cv2.divide(image, blur, scale=255)
 
     # otsu threshold
     thresh = cv2.threshold(divide, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
     return thresh
 
 
-def deskew_image(img):
+def deskew_image(image):
     # detect box
-    img = cv2.convertScaleAbs(img)
-    thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    image = cv2.convertScaleAbs(image)
+    thresh = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
     coords = np.column_stack(np.where(thresh > 0))
     angle = cv2.minAreaRect(coords)[-1]
 
@@ -45,13 +45,13 @@ def deskew_image(img):
         angle = -angle
 
     # deskew
-    (h, w) = img.shape[:2]
+    (h, w) = image.shape[:2]
     center = (w // 2, h // 2)
     M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    img = cv2.warpAffine(
-        img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
+    image = cv2.warpAffine(
+        image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
     )
-    return img
+    return image
 
 
 def preprocess_image(
@@ -71,10 +71,6 @@ def preprocess_image(
     if deskew:
         image = deskew_image(image)
 
-    # Normalize pixel intensity value
-    if normalize:
-        image = min_max(image)
-
     return image
 
 
@@ -86,6 +82,11 @@ if __name__ == "__main__":
 
     # Preprocess
     image = preprocess_image(
-        image=image, grayscale=True, noise_removal=True, deskew=True, normalize=True
+        image=image, grayscale=True, noise_removal=True, deskew=True
     )
+
+    # Show resulting image
     util.show_image(image)
+
+    # Save resulting image
+    util.write_image('preprocessed.png', image)
