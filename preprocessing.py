@@ -55,7 +55,7 @@ def deskew_image(image):
 
 
 def preprocess_image(
-    image, grayscale: bool, noise_removal: bool, deskew: bool, normalize: bool
+    image, grayscale: bool, noise_removal: bool, deskew: bool
 ):
 
     # Turn image to gray
@@ -76,17 +76,20 @@ def preprocess_image(
 
 if __name__ == "__main__":
 
+    print('___ PREPROCESSING ____')
+
     # Input image
+    print('Reading input image...')
     image = cv2.imread("image.png", cv2.IMREAD_COLOR)
     util.show_image(image)
 
     # Preprocess
+    print('Preprocessing image...')
     image = preprocess_image(
         image=image, grayscale=True, noise_removal=True, deskew=True
     )
 
-    # Show resulting image
+    # Showing & saving result image
+    print('Saving image...')
     util.show_image(image)
-
-    # Save resulting image
     util.write_image('preprocessed.png', image)
