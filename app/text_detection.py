@@ -3,12 +3,14 @@ import numpy as np
 import util
 import imutils.object_detection as imutils
 import csv
+from operator import itemgetter
+
 
 NEW_DIMENSIONS = 32
 
 def get_new_dimensions(image):
 
-    print('Calculating new dimensions')
+    print('Calculating new dimensions to fit model')
 
     # Get new image shape
     try:
@@ -25,16 +27,16 @@ def get_new_dimensions(image):
 
     #print("Old dimensions",height, width)
     #print("New dimensions",new_height, new_width)
-    print("Ratio change", h_ratio, w_ratio)
+    #print("Ratio change", h_ratio, w_ratio)
 
     return new_height, new_width, h_ratio, w_ratio
 
 def text_prediction(image, new_height, new_width):
 
-    print("Text detection")
+    print("Running text detection neural network")
 
     # Load the frozen EAST model
-    model = cv2.dnn.readNet('frozen_east_text_detection.pb')
+    model = cv2.dnn.readNet('..\models\\frozen_east_text_detection.pb')
 
     # Create a 4D input blob, (123.68, 116.78, 103.94) ImageNet
     blob = cv2.dnn.blobFromImage(image, 1, (new_width, new_height),(123.68, 116.78, 103.94), True, False)
@@ -51,7 +53,7 @@ def text_prediction(image, new_height, new_width):
 
 def thresholding(geometry, scores, threshold):
 
-    print("Thresholding")
+    print("Thresholding low score boxes")
 
     rectangles = list()
     confidence_score = list()
@@ -77,7 +79,7 @@ def thresholding(geometry, scores, threshold):
 # use Non-max suppression to get the required rectangles
 def non_max_suppression(rectangles, confidence_score, overlap_threshold):
 
-    print('Non-maximum suppression')
+    print('Removing overlaps with non-maximum suppression')
 
     fin_boxes = imutils.non_max_suppression(np.array(rectangles), probs=confidence_score, overlapThresh=overlap_threshold)
     return fin_boxes
@@ -102,6 +104,8 @@ def draw_rectangles(image, rectangles, h_ratio, w_ratio):
 
 def detect_text(image, dimensions: bool = True, threshold: float = 0.1, overlap_threshold: float = 0.5):
 
+    print('___ TEXT DETECTION ____')
+
     if dimensions:
         new_height, new_width, h_ratio, w_ratio = get_new_dimensions(image)
     else:
@@ -124,17 +128,18 @@ def detect_text(image, dimensions: bool = True, threshold: float = 0.1, overlap_
 def readjust_boxes(boxes, h_ratio, w_ratio):
     for index, box in enumerate(boxes):
         boxes[index] = [int(box[0]*w_ratio), int(box[1]*h_ratio), int(box[2]*w_ratio), int(box[3]*h_ratio)]
+
+    boxes = sorted(boxes, key=itemgetter(1))
+
     return boxes
         
 
 if __name__ == "__main__":
 
-    print('___ TEXT DETECTION ____')
-
     # Load input preprocessed image
     print('Reading preprocessed image')
-    image = cv2.imread("preprocessed.png", cv2.IMREAD_COLOR)
-    util.show_image(image)
+    image = cv2.imread("..\output_images\preprocessed.png", cv2.IMREAD_COLOR)
+    #util.show_image(image)
 
     # Text detection
     print('Running text detection')
@@ -142,10 +147,10 @@ if __name__ == "__main__":
 
     # Show result
     print('Saving image and bounding boxes')
-    util.show_image(image_copy)
-    util.write_image('text_detection.png',image_copy)
+    #util.show_image(image_copy)
+    util.write_image('..\output_images\\text_detection.png',image_copy)
 
     # Save text detected bounding boxes coordinates
-    with open("text_detection_boxes.csv", "w", newline="") as f:
+    with open("..\output_csv\\text_detection_boxes.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerows(final_boxes)

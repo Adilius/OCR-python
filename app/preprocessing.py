@@ -58,29 +58,41 @@ def preprocess_image(
     image, grayscale: bool, noise_removal: bool, deskew: bool
 ):
 
+    print('___ PREPROCESSING ____')
+
     # Turn image to gray
+    print('Grayscale: ', end="")
     if grayscale:
+        print('True')
         image = grayscale_image(image)
+    else:
+        print('False')
 
     # Remove noise gaussian
+    print('Gaussian noise removal: ', end="")
     if noise_removal:
+        print('True')
         image = noise_remove(image)
         image = cv2.convertScaleAbs(image)
+    else:
+        print('False')
 
     # Rotate image
+    print('Deskew: ', end="")
     if deskew:
+        print('True')
         image = deskew_image(image)
+    else:
+        print('False')
 
     return image
 
 
 if __name__ == "__main__":
 
-    print('___ PREPROCESSING ____')
-
     # Input image
     print('Reading input image...')
-    image = cv2.imread("image.png", cv2.IMREAD_COLOR)
+    image = cv2.imread("..\image.png", cv2.IMREAD_COLOR)
     util.show_image(image)
 
     # Preprocess
@@ -92,4 +104,4 @@ if __name__ == "__main__":
     # Showing & saving result image
     print('Saving image...')
     util.show_image(image)
-    util.write_image('preprocessed.png', image)
+    util.write_image('..\output_images\preprocessed.png', image)
